@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
@@ -19,6 +20,8 @@ class _SnakeGameState extends State<SnakeGame>
     with SingleTickerProviderStateMixin {
   static const double cellSize = 20.0; // mantém tamanho de cada célula
   final double speed = 100;
+  final ValueNotifier<int> repaintNotifier = ValueNotifier(0);
+  final double boardPadding = 5;
 
   Direction direction = Direction.right;
 
@@ -27,7 +30,7 @@ class _SnakeGameState extends State<SnakeGame>
 
   List<Offset> snake = [];
   double snakeLength = cellSize;
-  late Offset head;
+  Offset head = Offset.zero;
 
   late Offset food;
   final random = Random();
@@ -35,8 +38,10 @@ class _SnakeGameState extends State<SnakeGame>
   int score = 0;
   int bestScore = 0;
 
-  late int rows;
-  late int columns;
+  int rows = 0;
+  int columns = 0;
+
+  ui.Image? backgroundImage;
 
   @override
   void initState() {
@@ -85,13 +90,20 @@ class _SnakeGameState extends State<SnakeGame>
   }
 
   void spawnFood() {
+    // se ainda não sabemos o tamanho, não sorteia
+    if (columns <= 0 || rows <= 0) return;
+
+    final foodColumn = random.nextInt(columns); // agora columns >= 1
+    final foodRow    = random.nextInt(rows);    // idem
+
     food = Offset(
-      random.nextInt(columns) * cellSize + cellSize / 2,
-      random.nextInt(rows) * cellSize + cellSize / 2,
+      foodColumn * cellSize + cellSize / 2,
+      foodRow * cellSize   + cellSize / 2,
     );
   }
 
   void _onTick(Duration elapsed) {
+
     final dt = (elapsed - lastTime).inMilliseconds / 1000;
     lastTime = elapsed;
 
@@ -138,6 +150,7 @@ class _SnakeGameState extends State<SnakeGame>
       snakeLength += 50;
       score++;
       spawnFood();
+      setState(() {});
     }
 
     for (int i = (cellSize ~/ 2); i < snake.length; i++) {
@@ -148,9 +161,11 @@ class _SnakeGameState extends State<SnakeGame>
       }
     }
 
-    setState(() {});
-  }
+    repaintNotifier.value++;
+    setState(() {
 
+    });
+  }
   void _handleSwipe(DragEndDetails details) {
     if (details.velocity.pixelsPerSecond.dx.abs() >
         details.velocity.pixelsPerSecond.dy.abs()) {
@@ -171,23 +186,42 @@ class _SnakeGameState extends State<SnakeGame>
       }
     }
   }
+  bool _initialized = false;
+
+  void _initBackground() {
+    if (_initialized || rows <= 0 || columns <= 0) return;
+    _initialized = true;
+
+    SnakePainter.generateBackground(rows, columns, cellSize).then((img) {
+      if (mounted) {
+        setState(() => backgroundImage = img);
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
+    _initBackground();
 
-    // calcula dinamicamente colunas e linhas
-    columns = ((size.width - 5)/ cellSize).floor();
-    rows = ((size.height - 95) / cellSize).floor(); // reserva espaço pro placar
 
-    if (snake.isEmpty) {
-      resetGame();
+    // if (snake.isEmpty) {
+    //   resetGame();
+    // }
+
+    if (backgroundImage == null && rows > 0 && columns > 0) {
+      SnakePainter.generateBackground(rows, columns, cellSize).then((img) {
+        if (mounted) {
+          //(context.findRenderObject() as RenderCustomPaint?)?.markNeedsPaint();
+        }
+      });
     }
-
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea( // 👈 evita que o placar fique colado na barra de status
-        child: Column(
+        child:  Padding(
+          // ajuste esse valor (ex.: 72~92) pra altura real do seu player
+          padding: const EdgeInsets.only(bottom: 88),
+          child:Column(
           children: [
             // placar
             Container(
@@ -215,26 +249,50 @@ class _SnakeGameState extends State<SnakeGame>
             ),
             // jogo ocupando tela inteira
             Expanded(
-              child: GestureDetector(
+              child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final boardW = constraints.maxWidth - 0.1  * boardPadding;
+                    final boardH = constraints.maxHeight - 0.1 * boardPadding;
+
+                    // deixa o campo QUADRADO e centralizado
+                    final side = min(boardW, boardH);
+                    final visibleColumns = max(1, (side / cellSize).floor());
+                    final visibleRows    = max(1, (side / cellSize).floor());
+
+                    columns = visibleColumns;
+                    rows    = visibleRows;
+
+                    _initBackground();
+
+                    // inicializa o jogo só depois de rows/columns prontos
+                    if (snake.isEmpty) resetGame();
+
+                    return GestureDetector(
                 onHorizontalDragEnd: _handleSwipe,
                 onVerticalDragEnd: _handleSwipe,
-                child: Container(
-                  width: double.infinity,
-                  height: double.infinity,
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.black, width: 4),
-                  ),
-                  child: CustomPaint(
-                    painter:
-                    SnakePainter(snake, food, rows, columns, cellSize),
+                child: Center( // centraliza o campo
+                  child: Container(
+                    padding: EdgeInsets.all(boardPadding),
+                    width: side,
+                    height: side,
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.blue, width: 2),
+                    ),
+                  child: RepaintBoundary(
+                    child: CustomPaint(
+                      size: Size(side, side), // garante tamanho exato do canvas
+                      painter: SnakePainter(
+                          snake, food, rows, columns, cellSize, backgroundImage, repaintNotifier
+                      ),
+                    ),
                   ),
                 ),
-              ),
+              ));}),
             ),
           ],
         ),
       ),
-    );
+    ));
   }
 }
 
@@ -244,9 +302,39 @@ class SnakePainter extends CustomPainter {
   final int rows;
   final int columns;
   final double cellSize;
+  final ui.Image? cachedBackground;
 
-  SnakePainter(this.snake, this.food, this.rows, this.columns, this.cellSize);
+  SnakePainter(this.snake, this.food, this.rows, this.columns, this.cellSize, this.cachedBackground,
+      ValueNotifier<int> repaintNotifier,
+      ): super(repaint: repaintNotifier);
+  static Future<ui.Image> generateBackground(
+      int rows, int columns, double cellSize
+      ) async {
+    // garante mínimo de 1x1 px
+    final w = max(1, (columns * cellSize).toInt());
+    final h = max(1, (rows    * cellSize).toInt());
 
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+
+    for (int y = 0; y < rows; y++) {
+      for (int x = 0; x < columns; x++) {
+        final paint = Paint()
+          ..color = (x + y) % 2 == 0
+              ? const Color(0xFFB3E5FC)
+              : const Color(0xFFE1F5FE);
+        canvas.drawRect(
+          Rect.fromLTWH(x * cellSize, y * cellSize, cellSize, cellSize),
+          paint,
+        );
+      }
+    }
+
+    final picture = recorder.endRecording();
+    return picture.toImage(w, h);
+  }
+  TextPainter? _foodPainter;
+  RadialGradient? _shader1;
   @override
   void paint(Canvas canvas, Size size) {
     // tabuleiro

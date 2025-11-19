@@ -46,30 +46,38 @@ class HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMi
   List<Map<String, dynamic>> anunciosEmissora = [];
 
   Future<void> fetchNoticias() async {
+    print("Buscando noticias");
     final url = Uri.parse("https://radiotropical.net/category/noticias/");
     final response = await http.get(url);
+    print("response: ${response.statusCode}");
 
     if (response.statusCode == 200) {
       final document = parser.parse(response.body);
 
-      // pega só o container do seu trecho
-      final container = document.querySelector("#tdi_72");
+      // ID correto do bloco "Últimas Postagens"
+      final container = document.querySelector("#tdi_60");
 
       if (container != null) {
-        // dentro dele, pega todos os h3.entry-title > a
+        // pega todos os <h3 class="entry-title"><a>...</a></h3> dentro do bloco
         final elements = container.querySelectorAll("h3.entry-title a");
 
         // pega só os 3 primeiros títulos
         final ultimosTitulos =
-        elements.take(2).map((e) => e.text.trim()).toList();
+        elements.take(3).map((e) => e.text.trim()).toList();
 
         setState(() {
           titulos = ultimosTitulos;
-          print(titulos);
         });
+
+        print("Títulos encontrados: $titulos");
+      } else {
+        print("Container #tdi_60 não encontrado");
       }
+    } else {
+      print("Falha ao buscar notícias");
     }
   }
+
 
   @override
   void initState() {
@@ -196,6 +204,7 @@ class HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMi
     if (anunciosEmissora.isNotEmpty) {
       rodarCarrosselEmissora();
     }
+    await fetchNoticias();
   }
   void rodarCarrossel() async {
     while (mounted && anuncios.isNotEmpty) {
@@ -274,34 +283,34 @@ class HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMi
           mainAxisSize: MainAxisSize.min,
         children: [
           Image.asset("assets/logo_app.png",  width: MediaQuery.sizeOf(context).width * 0.8),
-    //   GestureDetector(
-    //     onTap: () => _launchUrl("https://radiotropical.net/"),
-    //     child: Row(
-    //     children: [
-    //       Expanded(
-    //         child: Column(
-    //           crossAxisAlignment: CrossAxisAlignment.start,
-    //           children: [
-    //             const Padding(
-    //               padding: EdgeInsets.symmetric(horizontal: 10),
-    //                 child: Text(
-    //               "Últimas Notícias",
-    //               style: TextStyle(
-    //                 fontSize: 22,
-    //                 fontWeight: FontWeight.bold,
-    //                 color: Color(0xff052562),
-    //               ),
-    //             )),
-    //             const SizedBox(height: 10),
-    //             ...titulos.take(3).map((titulo) => Padding(
-    // padding: EdgeInsets.symmetric(horizontal: 30, vertical: 5),
-    // child:Text(titulo, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 16,color: Colors.white),))),
-    //           ],
-    //         ),
-    //       ),
-    //     ],
-    //   )),
-      SizedBox(height: 10,),
+      GestureDetector(
+        onTap: () => _launchUrl("https://radiotropical.net/"),
+        child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 10),
+                    child: Text(
+                  "Últimas Notícias",
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                )),
+                const SizedBox(height: 5),
+                ...titulos.take(3).map((titulo) => Padding(
+    padding: EdgeInsets.symmetric(horizontal: 30, vertical: 5),
+    child:Text(titulo, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 16,color: Colors.white),))),
+              ],
+            ),
+          ),
+        ],
+      )),
+      SizedBox(height: 5,),
           Container(
             width: MediaQuery.sizeOf(context).width * 0.7,
             height: MediaQuery.sizeOf(context).height * 0.15,
@@ -331,7 +340,7 @@ class HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMi
           ),
 
           SizedBox(
-            height: 130,
+            height: 110,
             child: Pulsator(
               style: PulseStyle(color: Colors.blue),
               count: 5,
