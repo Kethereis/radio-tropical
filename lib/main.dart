@@ -34,7 +34,10 @@ void main() async {
 
   final session = await AudioSession.instance;
   await session.configure(const AudioSessionConfiguration.music());
-  await Firebase.initializeApp();
+
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
   FirebaseFirestore.instance.settings = const Settings(
     persistenceEnabled: true,
   );
