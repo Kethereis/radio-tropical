@@ -30,11 +30,10 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: "AIzaSyA-EXEMPLO-IOS",
-    appId: "1:28028152887:android:7161469b8d9c159caa63b2",
+    appId: "1:28028152887:ios:7161469b8d9c159caa63b2",
     messagingSenderId: "28028152887",
     projectId: "publicidade-tropical",
-    storageBucket: "meu-projeto.appspot.com",
-    iosClientId: "1234567890-abc123.apps.googleusercontent.com",
-    iosBundleId: "com.exemplo.app",
+    storageBucket: "publicidade-tropical.firebasestorage.app",
+    iosBundleId: "app.radio.tropical",
   );
 }

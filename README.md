@@ -1,16 +1,26 @@
 # tropical
 
-A new Flutter project.
+Aplicativo Flutter da Rádio Tropical.
 
-## Getting Started
+## Build iOS no CI (App Store Connect)
 
-This project is a starting point for a Flutter application.
+Se o step de assinatura falhar com erro similar a:
 
-A few resources to get you started if this is your first Flutter project:
+- `Unable to process request - PLA Update available`
+- `You currently don't have access to this membership resource`
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+isso **não é erro de código**. A conta Apple Developer está bloqueando chamadas da API até o aceite do contrato vigente.
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+### Como resolver
+
+1. O **Account Holder** da conta Apple Developer deve entrar no painel:
+   - Apple Developer Program
+   - App Store Connect
+2. Aceitar o contrato/PLA pendente.
+3. Reexecutar o pipeline de build iOS.
+
+> Sem esse aceite, comandos como `app-store-connect fetch-signing-files ...` retornam `403` e o build não consegue baixar arquivos de signing.
+
+## Firebase no iOS
+
+O app inicializa Firebase durante o bootstrap. Para iOS, confira se os valores de `lib/firebase_options.dart` correspondem ao app `app.radio.tropical`.

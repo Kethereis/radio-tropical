@@ -18,13 +18,23 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'firebase_options.dart';
 
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  await _initializeFirebase();
   print("Mensagem recebida em background: ${message.messageId}");
 }
 
+Future<void> _initializeFirebase() async {
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  } on UnsupportedError {
+    await Firebase.initializeApp();
+  }
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
   await JustAudioBackground.init(
     androidNotificationChannelId: 'app.radio.tropical',
     androidNotificationChannelName: AppConstants.appName,
@@ -34,6 +44,17 @@ void main() async {
 
   final session = await AudioSession.instance;
   await session.configure(const AudioSessionConfiguration.music());
+
+  try {
+    await _initializeFirebase();
+    FirebaseFirestore.instance.settings = const Settings(
+      persistenceEnabled: true,
+    );
+    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+  } catch (error, stackTrace) {
+    debugPrint('Falha ao inicializar o Firebase: $error');
+    debugPrintStack(stackTrace: stackTrace);
+  }
 
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
