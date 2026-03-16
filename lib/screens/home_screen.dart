@@ -13,6 +13,7 @@ import 'package:html/parser.dart' as parser;
 import 'package:just_audio/just_audio.dart';
 
 import '../service/play_service.dart';
+import 'package:xml/xml.dart';
 
 class HomeScreen extends StatefulWidget {
   final String title;
@@ -46,38 +47,46 @@ class HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMi
   List<Map<String, dynamic>> anunciosEmissora = [];
 
   Future<void> fetchNoticias() async {
-    print("Buscando noticias");
-    final url = Uri.parse("https://radiotropical.net/category/noticias/");
-    final response = await http.get(url);
-    print("response: ${response.statusCode}");
+    print("Buscando noticias RSS");
+
+    final url = Uri.parse("https://radiotropical.net/feed/");
+    final response = await http.get(
+      url,
+      headers: {
+        "User-Agent": "RadioTropicalApp/1.0 (Flutter; Mobile)",
+        "Accept": "application/rss+xml,application/xml,text/xml",
+      },
+    );
+    print("Status: ${response.statusCode}");
+    print("Conteúdo: ${response.body}");
 
     if (response.statusCode == 200) {
-      final document = parser.parse(response.body);
+      final document = XmlDocument.parse(response.body);
 
-      // ID correto do bloco "Últimas Postagens"
-      final container = document.querySelector("#tdi_60");
+      // pega todos os <item>
+      final items = document.findAllElements('item');
 
-      if (container != null) {
-        // pega todos os <h3 class="entry-title"><a>...</a></h3> dentro do bloco
-        final elements = container.querySelectorAll("h3.entry-title a");
+      // extrai os <title> de cada item
+      final titulos = items
+          .map((item) => item.findElements('title').first.text.trim())
+          .toList();
 
-        // pega só os 3 primeiros títulos
-        final ultimosTitulos =
-        elements.take(3).map((e) => e.text.trim()).toList();
+      // se quiser só os 3 primeiros
+      final ultimos3 = titulos.take(3).toList();
 
-        setState(() {
-          titulos = ultimosTitulos;
-        });
+      setState(() {
+        this.titulos = ultimos3;
+      });
 
-        print("Títulos encontrados: $titulos");
-      } else {
-        print("Container #tdi_60 não encontrado");
+      print("Títulos encontrados:");
+      for (var t in ultimos3) {
+        print(t);
       }
+
     } else {
-      print("Falha ao buscar notícias");
+      print("Erro ao buscar feed");
     }
   }
-
 
   @override
   void initState() {
